@@ -1,0 +1,19 @@
+# Ignore compiled files
+*.exe
+*.o
+*.obj
+*.out
+
+# Ignore backup files
+*~
+*.bak
+
+# Ignore logs or debug outputs
+*.log
+
+# Ignore VS Code settings (if using)
+.vscode/
+
+# Ignore Mac/Windows-specific files
+.DS_Store
+Thumbs.db
