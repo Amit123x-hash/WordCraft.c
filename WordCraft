@@ -1,0 +1,134 @@
+// Terminal-based Text Editor in C with Basic Undo/Redo
+// Cross-platform: Works on Windows with MinGW (no external extensions needed)
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <conio.h> // For _getch() on Windows
+
+#define MAX_LINES 1000
+#define MAX_LINE_LENGTH 1024
+#define UNDO_STACK_SIZE 100
+
+typedef struct {
+    char text[MAX_LINES][MAX_LINE_LENGTH];
+    int line_count;
+} Buffer;
+
+Buffer buffer;
+
+// Undo/Redo stacks
+Buffer undo_stack[UNDO_STACK_SIZE];
+Buffer redo_stack[UNDO_STACK_SIZE];
+int undo_top = -1;
+int redo_top = -1;
+
+void push_undo() {
+    if (undo_top < UNDO_STACK_SIZE - 1) {
+        undo_top++;
+        undo_stack[undo_top] = buffer;
+    }
+}
+
+void push_redo() {
+    if (redo_top < UNDO_STACK_SIZE - 1) {
+        redo_top++;
+        redo_stack[redo_top] = buffer;
+    }
+}
+
+void undo() {
+    if (undo_top >= 0) {
+        push_redo();
+        buffer = undo_stack[undo_top--];
+    }
+}
+
+void redo() {
+    if (redo_top >= 0) {
+        push_undo();
+        buffer = redo_stack[redo_top--];
+    }
+}
+
+void load_file(const char *filename) {
+    FILE *file = fopen(filename, "r");
+    if (!file) return;
+
+    buffer.line_count = 0;
+    while (fgets(buffer.text[buffer.line_count], MAX_LINE_LENGTH, file)) {
+        buffer.line_count++;
+    }
+    fclose(file);
+}
+
+void save_file(const char *filename) {
+    FILE *file = fopen(filename, "w");
+    if (!file) return;
+
+    for (int i = 0; i < buffer.line_count; i++) {
+        fputs(buffer.text[i], file);
+    }
+    fclose(file);
+    printf("\nFile saved.\n");
+}
+
+void print_buffer() {
+    system("cls");
+    for (int i = 0; i < buffer.line_count; i++) {
+        printf("%3d | %s", i + 1, buffer.text[i]);
+    }
+    printf("\n[Ctrl+S: Save | Ctrl+Z: Undo | Ctrl+Y: Redo | Ctrl+Q: Quit]\n");
+}
+
+void edit_loop(const char *filename) {
+    char input[MAX_LINE_LENGTH];
+    int ch;
+
+    while (1) {
+        print_buffer();
+        printf("\nEnter line number to edit (1-%d): ", buffer.line_count + 1);
+        int line_num;
+        scanf("%d", &line_num);
+        getchar(); // consume newline
+        if (line_num < 1 || line_num > MAX_LINES) continue;
+
+        printf("Enter new text: ");
+        fgets(input, MAX_LINE_LENGTH, stdin);
+
+        push_undo(); // Save previous state
+
+        strcpy(buffer.text[line_num - 1], input);
+        if (line_num > buffer.line_count) buffer.line_count = line_num;
+
+        printf("\n[Edited line %d]\nPress any key to continue...", line_num);
+        _getch();
+
+        // Check for control key commands
+        while (_kbhit()) {
+            ch = _getch();
+            if (ch == 17) { // Ctrl+Q
+                return;
+            } else if (ch == 19) { // Ctrl+S
+                save_file(filename);
+            } else if (ch == 26) { // Ctrl+Z
+                undo();
+            } else if (ch == 25) { // Ctrl+Y
+                redo();
+            }
+        }
+    }
+}
+
+int main(int argc, char *argv[]) {
+    if (argc < 2) {
+        printf("Usage: %s <filename>\n", argv[0]);
+        return 1;
+    }
+
+    load_file(argv[1]);
+    edit_loop(argv[1]);
+    save_file(argv[1]);
+
+    return 0;
+}
